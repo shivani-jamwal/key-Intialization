@@ -1,69 +1,92 @@
 import React, { useState } from 'react';
-import init from '../keygen_server/pkg/keygen_server';
-import encrypt_data from '../keygen_server/pkg/keygen_server'
+import init, { encrypt } from '../keygen_server/pkg'; 
 
 const DataEncryption: React.FC = () => {
-    const [plaintext, setPlaintext] = useState('');
-    const [publicKey, setPublicKey] = useState('');
-    const [policy, setPolicy] = useState('');
-    const [encryptedData, setEncryptedData] = useState<string | null>(null);
+    const [publicKey, setPublicKey] = useState<string | null>(null);
+    const [policy, setPolicy] = useState<string>('');
+    const [message, setMessage] = useState<string>('');
+    const [ciphertext, setCiphertext] = useState<string>('');
     const [error, setError] = useState<string | null>(null);
 
-    // Initialize the WASM module
-    React.useEffect(() => {
-        init().then(() => console.log('WASM Module Initialized'));
-    }, []);
-
-    const handleEncryption = async () => {
+    const handleEncrypt = async () => {
+        setError(null);
+        if (!publicKey) {
+            setError("Public key is required");
+            return;
+        }
         try {
-            await init();  // Ensure the WASM module is initialized
-            const encrypted = encrypt_data(plaintext, publicKey, policy);
-            setEncryptedData(encrypted);
-            setError(null);
+            await init(); // Initialize the WASM module
+            const encodedMessage = new TextEncoder().encode(message);
+            const result = encrypt(publicKey, policy, encodedMessage);
+            setCiphertext(result);
         } catch (err) {
-            setError('Encryption failed. Please check your inputs.');
-            console.error(err);
+            const errorMessage = (err as Error).message || "Encryption failed";
+            setError(errorMessage);
+            console.error("Encryption failed:", err); // Log the full error to the console
+        }
+    };
+    
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const jsonContent = event.target?.result as string;
+                    setPublicKey(jsonContent);
+                    setError(null);
+                } catch (err) {
+                    setError("Failed to load public key file");
+                }
+            };
+            reader.onerror = () => {
+                setError("Failed to read the file");
+            };
+            reader.readAsText(file);
         }
     };
 
     return (
-        <div>
+        <div className="p-5">
             <h1>Data Encryption</h1>
+
             <div>
-                <label>
-                    Plaintext:
-                    <textarea
-                        value={plaintext}
-                        onChange={(e) => setPlaintext(e.target.value)}
-                    />
-                </label>
+                <label>Upload Public Key (.json):</label>
+                <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleFileUpload}
+                />
             </div>
+            
             <div>
-                <label>
-                    Public Key:
-                    <textarea
-                        value={publicKey}
-                        onChange={(e) => setPublicKey(e.target.value)}
-                    />
-                </label>
+                <label>Policy:</label>
+                <input
+                    type="text"
+                    value={policy}
+                    onChange={(e) => setPolicy(e.target.value)}
+                />
             </div>
+            
             <div>
-                <label>
-                    Access Control Policy:
-                    <textarea
-                        value={policy}
-                        onChange={(e) => setPolicy(e.target.value)}
-                    />
-                </label>
+                <label>Message:</label>
+                <input
+                    type="text"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                />
             </div>
-            <button onClick={handleEncryption}>Encrypt Data</button>
-            {encryptedData && (
+            
+            <button onClick={handleEncrypt}>Encrypt</button>
+            
+            {ciphertext && (
                 <div>
-                    <h2>Encrypted Data:</h2>
-                    <textarea readOnly value={encryptedData} />
+                    <h2>Ciphertext:</h2>
+                    <textarea rows={10} readOnly value={ciphertext}></textarea>
                 </div>
             )}
-            {error && <p style={{ color: 'red' }}>{error}</p>}
+            
+            {error && <div style={{ color: 'red' }}>{error}</div>}
         </div>
     );
 };

@@ -35,6 +35,17 @@ export default function PublicKeyRequest() {
         }
     };
 
+    const handleDownload = () => {
+        if (publicKey) {
+            const element = document.createElement("a");
+            const file = new Blob([publicKey], { type: 'text/plain' });
+            element.href = URL.createObjectURL(file);
+            element.download = "public_key.txt";
+            document.body.appendChild(element);
+            element.click();
+        }
+    };
+
     return (
         <div>
             <h1>Request Public Key</h1>
@@ -43,6 +54,7 @@ export default function PublicKeyRequest() {
                 <div>
                     <h2>Public Key:</h2>
                     <pre>{publicKey}</pre>
+                    <button onClick={handleDownload}>Download Public Key</button>
                 </div>
             )}
             {error && <p style={{ color: 'red' }}>{error}</p>}
