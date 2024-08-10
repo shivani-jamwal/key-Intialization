@@ -1,9 +1,9 @@
-use warp::Filter;
+use dotenv::dotenv;
 use rabe::schemes::bsw::*;
 use reqwest::Client;
 use serde::Serialize;
-use dotenv::dotenv;
 use std::env;
+use warp::Filter;
 
 #[derive(Serialize)]
 struct KeyData {
@@ -18,7 +18,6 @@ struct PublicKeyResponse {
 
 #[tokio::main]
 async fn main() -> Result<(), reqwest::Error> {
-
     dotenv().ok();
 
     // Generate the keys
@@ -52,20 +51,20 @@ async fn main() -> Result<(), reqwest::Error> {
     if response.status().is_success() {
         println!("Keys successfully stored in Supabase.");
     } else {
-        println!("Failed to store keys in Supabase: {:?}", response.text().await?);
+        println!(
+            "Failed to store keys in Supabase: {:?}",
+            response.text().await?
+        );
     }
 
-    // Set up a web server to handle requests for the public key
-    let pk_route = warp::path("request-pk")
-        .map(move || {
-            // Return the Public Key as a JSON response
-            warp::reply::json(&PublicKeyResponse { public_key: pk_str.clone() })
-        });
+    let pk_route = warp::path("request-pk").map(move || {
+        warp::reply::json(&PublicKeyResponse {
+            public_key: pk_str.clone(),
+        })
+    });
 
     // Start the web server
-    warp::serve(pk_route)
-        .run(([127, 0, 0, 1], 3030))
-        .await;
+    warp::serve(pk_route).run(([127, 0, 0, 1], 3030)).await;
 
     Ok(())
 }
