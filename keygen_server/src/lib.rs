@@ -4,7 +4,7 @@ use rabe::schemes::bsw::{CpAbeCiphertext, CpAbePublicKey};
 use rabe::utils::policy::pest::PolicyLanguage;
 use serde_json;
 use wasm_bindgen::prelude::*;
-use js_sys::Uint8Array;
+
 
 #[wasm_bindgen]
 extern "C" {

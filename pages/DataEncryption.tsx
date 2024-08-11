@@ -18,7 +18,7 @@ const DataEncryption: React.FC = () => {
         try {
             await init(); 
 
-            console.log("Public Key JSON:", publicKey);
+            console.log("Public Key:", publicKey);
             console.log("Policy:", policy);
             console.log("Message:", message);
 
@@ -41,13 +41,14 @@ const DataEncryption: React.FC = () => {
             const reader = new FileReader();
             reader.onload = (event) => {
                 try {
-                    const jsonContent = event.target?.result as string;
-                    console.log("Loaded Public Key:", jsonContent);
-                    setPublicKey(jsonContent);
+                    const jsonContent = JSON.parse(event.target?.result as string); // Now it's JSON
+                    console.log("Loaded Public Key JSON:", jsonContent);
+                    
+                    setPublicKey(JSON.stringify(jsonContent)); // Convert it back to string for Rust
                     setError(null);
                 } catch (err) {
                     console.error("Error parsing public key:", err);
-                    setError("Failed to load public key file");
+                    setError("Failed to load public key file. Ensure it's valid JSON.");
                 }
             };
             reader.onerror = () => {
@@ -56,16 +57,17 @@ const DataEncryption: React.FC = () => {
             reader.readAsText(file);
         }
     };
+    
 
     return (
         <div className="p-5">
             <h1>Data Encryption</h1>
 
             <div>
-                <label>Upload Public Key (.json):</label>
+                <label>Upload Public Key (.txt):</label>
                 <input
                     type="file"
-                    accept=".json"
+                    accept=".txt"
                     onChange={handleFileUpload}
                 />
             </div>
