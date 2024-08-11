@@ -1,6 +1,6 @@
 extern crate rabe;
 use crate::rabe::schemes::*;
-use rabe::schemes::bsw::{CpAbeCiphertext, CpAbePublicKey, CpAbeSecretKey, CpAbeMasterKey};
+use rabe::schemes::bsw::{CpAbeCiphertext, CpAbePublicKey};
 use rabe::utils::policy::pest::PolicyLanguage;
 use serde_json;
 use wasm_bindgen::prelude::*;
@@ -11,6 +11,7 @@ extern "C" {
     #[wasm_bindgen(js_namespace = console)]
     fn log(s: &str);
 }
+
 #[wasm_bindgen]
 pub fn setup() -> Result<JsValue, JsValue> {
     let (pk, msk) = bsw::setup();
@@ -19,23 +20,37 @@ pub fn setup() -> Result<JsValue, JsValue> {
 
     let result = (pk_json, msk_json);
 
-    serde_wasm_bindgen::to_value(&result)
-        .map_err(|e| e.into())
+    let result_json = serde_json::to_string(&result)
+        .map_err(|e| JsValue::from_str(&format!("Serialization error: {:?}", e)))?;
+    Ok(JsValue::from_str(&result_json))
 }
 
 #[wasm_bindgen]
 pub fn encrypt(pk_json: &str, policy: &str, plaintext: Vec<u8>) -> Result<String, JsValue> {
-    let pk: CpAbePublicKey = serde_json::from_str(pk_json)
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    log(&format!("Public Key JSON: {}", pk_json)); 
+
+    let pk: CpAbePublicKey = match serde_json::from_str(pk_json) {
+        Ok(pk) => pk,
+        Err(e) => {
+            log(&format!("Deserialization error: {:?}", e));
+            return Err(JsValue::from_str(&e.to_string()));
+        }
+    };
 
     let policy_string = policy.to_string();
-    
-    let ct_cp: CpAbeCiphertext = bsw::encrypt(&pk, &policy_string, PolicyLanguage::HumanPolicy, &plaintext)
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
-    
+    log(&format!("Policy: {}", policy_string)); 
+
+    let ct_cp: CpAbeCiphertext = match bsw::encrypt(&pk, &policy_string, PolicyLanguage::HumanPolicy, &plaintext) {
+        Ok(ct) => ct,
+        Err(e) => {
+            log(&format!("Encryption error: {:?}", e));
+            return Err(JsValue::from_str(&e.to_string()));
+        }
+    };
+
     serde_json::to_string(&ct_cp)
-        .map_err(|e| JsValue::from_str(&e.to_string()))
+        .map_err(|e| {
+            log(&format!("Serialization error: {:?}", e));
+            JsValue::from_str(&e.to_string())
+        })
 }
-
-
-

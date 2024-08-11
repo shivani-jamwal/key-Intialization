@@ -558,6 +558,7 @@ dependencies = [
  "base64 0.13.1",
  "dotenv",
  "getrandom",
+ "js-sys",
  "rabe",
  "reqwest",
  "serde",

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import init, { encrypt } from '../keygen_server/pkg'; 
+import init, { encrypt } from '../keygen_server/pkg';
 
 const DataEncryption: React.FC = () => {
     const [publicKey, setPublicKey] = useState<string | null>(null);
@@ -14,18 +14,27 @@ const DataEncryption: React.FC = () => {
             setError("Public key is required");
             return;
         }
+
         try {
-            await init(); // Initialize the WASM module
+            await init(); 
+
+            console.log("Public Key JSON:", publicKey);
+            console.log("Policy:", policy);
+            console.log("Message:", message);
+
             const encodedMessage = new TextEncoder().encode(message);
+            console.log("Encoded Message:", encodedMessage);
+
             const result = encrypt(publicKey, policy, encodedMessage);
+            console.log("Encryption successful, ciphertext:", result);
             setCiphertext(result);
         } catch (err) {
             const errorMessage = (err as Error).message || "Encryption failed";
             setError(errorMessage);
-            console.error("Encryption failed:", err); // Log the full error to the console
+            console.error("Encryption error details:", err); 
         }
     };
-    
+
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
@@ -33,9 +42,11 @@ const DataEncryption: React.FC = () => {
             reader.onload = (event) => {
                 try {
                     const jsonContent = event.target?.result as string;
+                    console.log("Loaded Public Key:", jsonContent);
                     setPublicKey(jsonContent);
                     setError(null);
                 } catch (err) {
+                    console.error("Error parsing public key:", err);
                     setError("Failed to load public key file");
                 }
             };
