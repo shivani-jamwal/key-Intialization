@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -12,7 +11,7 @@ export default function PublicKeyRequest() {
 
     const handleRequestPublicKey = async () => {
         try {
-            // Fetch the public key from Supabase
+ 
             const { data, error } = await supabase
                 .from('keys')
                 .select('public_key')

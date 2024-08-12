@@ -1,69 +1,55 @@
-use dotenv::dotenv;
-use rabe::schemes::bsw::*;
-use reqwest::Client;
-use serde::Serialize;
-use std::env;
-use warp::Filter;
+use keygen_server::encrypt_with_setup;
+use ipfs_api::{IpfsClient, IpfsApi};
+use std::fs::File;
+use std::io::{self, Write};
+use tokio;
 
-#[derive(Serialize)]
-struct KeyData {
-    public_key: String,
-    master_secret_key: String,
-}
+async fn store_on_ipfs(data: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let client = IpfsClient::default();
 
-#[derive(Serialize)]
-struct PublicKeyResponse {
-    public_key: String,
+    let mut tmpfile = File::create("/tmp/ipfs_data.txt")?;
+    write!(tmpfile, "{}", data)?;
+    tmpfile.sync_all()?;
+
+    let file = File::open("/tmp/ipfs_data.txt")?;
+    let res = client.add(file).await?;
+    
+    Ok(res.hash)
 }
 
 #[tokio::main]
-async fn main() -> Result<(), reqwest::Error> {
-    dotenv().ok();
+async fn main() {
+    let policy = r#"
+    "attr1" and ("attr2" or "attr3") and ("attr4" or ("attr5" and "attr6"))
+    "#;
+    
+    let plaintext = b"Hello, World!";
 
-    // Generate the keys
-    let (pk, msk) = setup();
-    let pk_str = format!("{:?}", pk);
-    let msk_str = format!("{:?}", msk);
+    match encrypt_with_setup(policy, plaintext.to_vec()) {
+        Ok(ciphertext_json) => {
+            println!("Encrypted ciphertext: {}", ciphertext_json);
 
-    println!("Public Key (PK): {}", pk_str);
-    println!("Master Secret Key (MSK): {}", msk_str);
+            let mut attribute_pass = String::new();
+            let mut attribute_fail = String::new();
 
-    // Store keys in Supabase
-    let key_data = KeyData {
-        public_key: pk_str.clone(),
-        master_secret_key: msk_str,
-    };
+            println!("Enter the attributes that passed (comma-separated):");
+            io::stdin().read_line(&mut attribute_pass).expect("Failed to read input");
 
-    let supabase_url = env::var("SUPABASE_URL").expect("SUPABASE_URL not set");
-    let supabase_key = env::var("SUPABASE_KEY").expect("SUPABASE_KEY not set");
+            println!("Enter the attributes that failed (comma-separated):");
+            io::stdin().read_line(&mut attribute_fail).expect("Failed to read input");
 
-    let client = Client::new();
+            let data_to_store = format!(
+                "Ciphertext: {}\nPolicy: {}\nAttribute Pass: {}\nAttribute Fail: {}",
+                ciphertext_json.trim(), policy.trim(), attribute_pass.trim(), attribute_fail.trim()
+            );
 
-    let response = client
-        .post(format!("{}/rest/v1/keys", supabase_url))
-        .header("apikey", supabase_key.clone())
-        .header("Authorization", format!("Bearer {}", supabase_key))
-        .header("Content-Type", "application/json")
-        .json(&key_data)
-        .send()
-        .await?;
-
-    if response.status().is_success() {
-        println!("Keys successfully stored in Supabase.");
-    } else {
-        println!(
-            "Failed to store keys in Supabase: {:?}",
-            response.text().await?
-        );
+            match store_on_ipfs(&data_to_store).await {
+                Ok(cid) => println!("Stored on IPFS with CID: {}", cid),
+                Err(e) => println!("Error storing data on IPFS: {}", e),
+            }
+        },
+        Err(e) => {
+            println!("Encryption failed: {}", e);
+        },
     }
-
-    let pk_route = warp::path("request-pk").map(move || {
-        warp::reply::json(&PublicKeyResponse {
-            public_key: pk_str.clone(),
-        })
-    });
-
-    warp::serve(pk_route).run(([127, 0, 0, 1], 3030)).await;
-
-    Ok(())
 }

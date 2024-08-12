@@ -1,56 +1,27 @@
 extern crate rabe;
-use crate::rabe::schemes::*;
-use rabe::schemes::bsw::{CpAbeCiphertext, CpAbePublicKey};
+use rabe::schemes::bsw::{self, CpAbeCiphertext, CpAbePublicKey};
 use rabe::utils::policy::pest::PolicyLanguage;
 use serde_json;
-use wasm_bindgen::prelude::*;
 
-
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
-}
-
-#[wasm_bindgen]
-pub fn setup() -> Result<JsValue, JsValue> {
+pub fn setup() -> Result<String, String> {
     let (pk, msk) = bsw::setup();
-    let pk_json = serde_json::to_string(&pk).unwrap_or_else(|_| "Failed to serialize public key".to_string());
-    let msk_json = serde_json::to_string(&msk).unwrap_or_else(|_| "Failed to serialize master secret key".to_string());
-
-    let result = (pk_json, msk_json);
-
-    let result_json = serde_json::to_string(&result)
-        .map_err(|e| JsValue::from_str(&format!("Serialization error: {:?}", e)))?;
-    Ok(JsValue::from_str(&result_json))
+    let pk_json = serde_json::to_string(&pk).map_err(|_| "Failed to serialize public key".to_string())?;
+    let msk_json = serde_json::to_string(&msk).map_err(|_| "Failed to serialize master secret key".to_string())?;
+    
+    let result = serde_json::to_string(&(pk_json, msk_json)).map_err(|e| format!("Serialization error: {:?}", e))?;
+    
+    Ok(result)
 }
 
-#[wasm_bindgen]
-pub fn encrypt(pk_json: &str, policy: &str, plaintext: Vec<u8>) -> Result<String, JsValue> {
-    log(&format!("Public Key JSON: {}", pk_json)); 
 
-    let pk: CpAbePublicKey = match serde_json::from_str(pk_json) {
-        Ok(pk) => pk,
-        Err(e) => {
-            log(&format!("Deserialization error: {:?}", e));
-            return Err(JsValue::from_str(&e.to_string()));
-        }
-    };
+pub fn encrypt_with_setup(policy: &str, plaintext: Vec<u8>) -> Result<String, String> {
 
+    let (pk, _msk) = bsw::setup();
     let policy_string = policy.to_string();
-    log(&format!("Policy: {}", policy_string)); 
+    let ct_cp: CpAbeCiphertext = bsw::encrypt(&pk, &policy_string, PolicyLanguage::HumanPolicy, &plaintext)
+        .map_err(|e| format!("Encryption error: {:?}", e))?;
+    let ciphertext_json = serde_json::to_string(&ct_cp)
+        .map_err(|e| format!("Serialization error: {:?}", e))?;
 
-    let ct_cp: CpAbeCiphertext = match bsw::encrypt(&pk, &policy_string, PolicyLanguage::HumanPolicy, &plaintext) {
-        Ok(ct) => ct,
-        Err(e) => {
-            log(&format!("Encryption error: {:?}", e));
-            return Err(JsValue::from_str(&e.to_string()));
-        }
-    };
-
-    serde_json::to_string(&ct_cp)
-        .map_err(|e| {
-            log(&format!("Serialization error: {:?}", e));
-            JsValue::from_str(&e.to_string())
-        })
+    Ok(ciphertext_json)
 }
